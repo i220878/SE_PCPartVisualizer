@@ -1,0 +1,539 @@
+"use client"
+
+import { useRef, useState } from "react"
+import { Canvas, useFrame, useThree } from "@react-three/fiber"
+import { OrbitControls, PerspectiveCamera, Environment, Html } from "@react-three/drei"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { AlertCircle, Maximize, Minimize, RotateCw, Eye, EyeOff, Layers } from "lucide-react"
+import { useBuildStore } from "@/lib/store"
+import { checkCompatibility } from "@/lib/compatibility"
+
+export default function PCVisualizer() {
+  const { currentBuild } = useBuildStore()
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [showLabels, setShowLabels] = useState(true)
+  const [explodedView, setExplodedView] = useState(false)
+  const compatibilityIssues = checkCompatibility(currentBuild.components)
+
+  const toggleFullscreen = () => {
+    setIsFullscreen(!isFullscreen)
+  }
+
+  const toggleLabels = () => {
+    setShowLabels(!showLabels)
+  }
+
+  const toggleExplodedView = () => {
+    setExplodedView(!explodedView)
+  }
+
+  return (
+    <Card className={`w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}`}>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>3D Visualizer</CardTitle>
+          <CardDescription>
+            {currentBuild.components.length === 0
+              ? "Add components to visualize your build"
+              : "Rotate and zoom to inspect your build"}
+          </CardDescription>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleLabels}
+            title={showLabels ? "Hide labels" : "Show labels"}
+          >
+            {showLabels ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={toggleExplodedView}
+            title={explodedView ? "Compact view" : "Exploded view"}
+          >
+            <Layers className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={toggleFullscreen}>
+            {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className={`p-0 ${isFullscreen ? "h-[calc(100vh-4rem)]" : "h-[500px]"}`}>
+        <Canvas shadows>
+          <PerspectiveCamera makeDefault position={[0, 0, 5]} />
+          <ambientLight intensity={0.5} />
+          <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
+          <directionalLight position={[-10, -10, -5]} intensity={0.5} />
+          <Environment preset="studio" />
+
+          <DetailedPCCase
+            hasComponents={currentBuild.components.length > 0}
+            compatibilityIssues={compatibilityIssues}
+            showLabels={showLabels}
+            explodedView={explodedView}
+            components={currentBuild.components}
+          />
+
+          <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} minDistance={2} maxDistance={10} />
+        </Canvas>
+
+        {compatibilityIssues.length > 0 && (
+          <div className="absolute bottom-4 left-4 right-4 bg-destructive/90 text-destructive-foreground p-3 rounded-md">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="font-medium">Compatibility Issues Detected</div>
+                <div className="text-sm mt-1">
+                  {compatibilityIssues[0]}
+                  {compatibilityIssues.length > 1 && ` (+${compatibilityIssues.length - 1} more)`}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentBuild.components.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+            <div className="text-center p-4">
+              <div className="text-lg font-medium mb-2">No components selected</div>
+              <p className="text-muted-foreground">Add components to your build to see them in 3D</p>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function DetailedPCCase({ hasComponents, compatibilityIssues, showLabels, explodedView, components }) {
+  const groupRef = useRef()
+  const hasIssues = compatibilityIssues.length > 0
+  const { viewport } = useThree()
+
+  // Slowly rotate the entire PC
+  useFrame((state) => {
+    if (groupRef.current) {
+      groupRef.current.rotation.y = Math.sin(state.clock.getElapsedTime() * 0.1) * 0.2
+    }
+  })
+
+  // Calculate component positions based on exploded view
+  const positions = {
+    case: [0, 0, 0],
+    motherboard: [0, 0, explodedView ? 0.3 : 0.2],
+    cpu: [0, 0.7, explodedView ? 0.8 : 0.3],
+    gpu: [0, -0.3, explodedView ? 0.8 : 0.3],
+    ram: [0.5, 0.3, explodedView ? 0.8 : 0.3],
+    psu: [0, -1.2, explodedView ? 0.8 : 0.3],
+    storage: [-0.6, 0.3, explodedView ? 0.8 : 0.3],
+    fans: [0, 0, explodedView ? -0.5 : -0.4],
+  }
+
+  // Get component details for labels
+  const getComponentName = (category) => {
+    const component = components.find((c) => c.category === category)
+    return component ? component.name : category.toUpperCase()
+  }
+
+  return (
+    <group ref={groupRef}>
+      {/* PC Case */}
+      <mesh receiveShadow castShadow position={positions.case}>
+        <boxGeometry args={[2.2, 3.2, 1.2]} />
+        <meshStandardMaterial
+          color={hasIssues ? "#fda4af" : "#e2e8f0"}
+          transparent
+          opacity={0.4}
+          metalness={0.6}
+          roughness={0.2}
+        />
+
+        {/* Case frame */}
+        <mesh>
+          <boxGeometry args={[2.22, 3.22, 1.22]} />
+          <meshStandardMaterial color="#1e293b" wireframe={true} transparent opacity={0.7} />
+        </mesh>
+
+        {/* Front panel with mesh */}
+        <mesh position={[0, 0, 0.61]}>
+          <planeGeometry args={[2, 3]} />
+          <meshStandardMaterial color="#1e293b" transparent opacity={0.9} />
+
+          {/* Front mesh pattern */}
+          <mesh position={[0, 0, 0.01]}>
+            <planeGeometry args={[1.8, 1.2]} />
+            <meshStandardMaterial color="#334155" wireframe={true} transparent opacity={0.7} />
+          </mesh>
+
+          {/* Power button */}
+          <mesh position={[0, 1.4, 0.01]}>
+            <cylinderGeometry args={[0.05, 0.05, 0.02, 16]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+          </mesh>
+
+          {/* USB ports */}
+          <group position={[0, 1.2, 0.01]}>
+            <mesh position={[-0.15, 0, 0]}>
+              <boxGeometry args={[0.06, 0.02, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+            <mesh position={[0.15, 0, 0]}>
+              <boxGeometry args={[0.06, 0.02, 0.01]} />
+              <meshStandardMaterial color="#000000" />
+            </mesh>
+          </group>
+        </mesh>
+
+        {/* Side panel (tempered glass) */}
+        <mesh position={[1.11, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <planeGeometry args={[1.2, 3]} />
+          <meshPhysicalMaterial
+            color="#94a3b8"
+            transparent
+            opacity={0.3}
+            metalness={0.9}
+            roughness={0}
+            transmission={0.9}
+            thickness={0.05}
+          />
+        </mesh>
+
+        {/* Components inside */}
+        {hasComponents && (
+          <>
+            {/* Motherboard */}
+            <mesh position={positions.motherboard} receiveShadow castShadow>
+              <boxGeometry args={[1.7, 2.4, 0.1]} />
+              <meshStandardMaterial color="#334155" metalness={0.5} roughness={0.8} />
+
+              {/* Motherboard details */}
+              <group>
+                {/* CPU socket */}
+                <mesh position={[0, 0.7, 0.051]}>
+                  <boxGeometry args={[0.52, 0.52, 0.001]} />
+                  <meshStandardMaterial color="#1e293b" />
+                </mesh>
+
+                {/* RAM slots */}
+                <group position={[0.5, 0.3, 0.051]}>
+                  <mesh position={[0, 0.15, 0]}>
+                    <boxGeometry args={[0.1, 0.2, 0.001]} />
+                    <meshStandardMaterial color="#1e293b" />
+                  </mesh>
+                  <mesh position={[0, -0.15, 0]}>
+                    <boxGeometry args={[0.1, 0.2, 0.001]} />
+                    <meshStandardMaterial color="#1e293b" />
+                  </mesh>
+                </group>
+
+                {/* PCIe slots */}
+                <group position={[0, -0.3, 0.051]}>
+                  <mesh position={[0, 0, 0]}>
+                    <boxGeometry args={[1.4, 0.1, 0.001]} />
+                    <meshStandardMaterial color="#1e293b" />
+                  </mesh>
+                  <mesh position={[0, -0.2, 0]}>
+                    <boxGeometry args={[1.4, 0.1, 0.001]} />
+                    <meshStandardMaterial color="#1e293b" />
+                  </mesh>
+                </group>
+
+                {/* SATA ports */}
+                <group position={[-0.6, 0.3, 0.051]}>
+                  <mesh position={[0, 0.1, 0]}>
+                    <boxGeometry args={[0.3, 0.05, 0.001]} />
+                    <meshStandardMaterial color="#ef4444" />
+                  </mesh>
+                  <mesh position={[0, 0, 0]}>
+                    <boxGeometry args={[0.3, 0.05, 0.001]} />
+                    <meshStandardMaterial color="#ef4444" />
+                  </mesh>
+                  <mesh position={[0, -0.1, 0]}>
+                    <boxGeometry args={[0.3, 0.05, 0.001]} />
+                    <meshStandardMaterial color="#ef4444" />
+                  </mesh>
+                </group>
+
+                {/* I/O shield */}
+                <mesh position={[-0.8, 0.7, 0]}>
+                  <boxGeometry args={[0.1, 1, 0.1]} />
+                  <meshStandardMaterial color="#64748b" metalness={0.7} roughness={0.3} />
+                </mesh>
+              </group>
+            </mesh>
+
+            {/* CPU */}
+            <mesh position={positions.cpu} receiveShadow castShadow>
+              <boxGeometry args={[0.5, 0.5, 0.05]} />
+              <meshStandardMaterial color={hasIssues ? "#ef4444" : "#64748b"} metalness={0.8} roughness={0.2} />
+
+              {/* CPU cooler */}
+              <group>
+                <mesh position={[0, 0, 0.1]}>
+                  <cylinderGeometry args={[0.25, 0.25, 0.1, 16]} />
+                  <meshStandardMaterial color="#94a3b8" metalness={0.7} roughness={0.3} />
+                </mesh>
+                <mesh position={[0, 0, 0.2]}>
+                  <cylinderGeometry args={[0.05, 0.05, 0.2, 16]} />
+                  <meshStandardMaterial color="#64748b" />
+                </mesh>
+                <mesh position={[0, 0, 0.3]}>
+                  <boxGeometry args={[0.4, 0.4, 0.02]} />
+                  <meshStandardMaterial color="#94a3b8" />
+                </mesh>
+              </group>
+            </mesh>
+
+            {/* GPU */}
+            <mesh position={positions.gpu} receiveShadow castShadow>
+              <boxGeometry args={[1.6, 0.4, 0.1]} />
+              <meshStandardMaterial color="#334155" metalness={0.6} roughness={0.4} />
+
+              {/* GPU details */}
+              <group>
+                <mesh position={[0, 0, 0.051]}>
+                  <boxGeometry args={[1.4, 0.3, 0.001]} />
+                  <meshStandardMaterial color="#1e293b" metalness={0.7} roughness={0.3} />
+                </mesh>
+
+                {/* GPU fans */}
+                <group>
+                  <mesh position={[-0.5, 0, 0.1]}>
+                    <cylinderGeometry args={[0.15, 0.15, 0.02, 16]} />
+                    <meshStandardMaterial color="#64748b" />
+                  </mesh>
+                  <mesh position={[0, 0, 0.1]}>
+                    <cylinderGeometry args={[0.15, 0.15, 0.02, 16]} />
+                    <meshStandardMaterial color="#64748b" />
+                  </mesh>
+                  <mesh position={[0.5, 0, 0.1]}>
+                    <cylinderGeometry args={[0.15, 0.15, 0.02, 16]} />
+                    <meshStandardMaterial color="#64748b" />
+                  </mesh>
+                </group>
+
+                {/* Display ports */}
+                <group position={[-0.7, 0, -0.051]}>
+                  <mesh position={[0, 0.05, 0]}>
+                    <boxGeometry args={[0.1, 0.03, 0.001]} />
+                    <meshStandardMaterial color="#000000" />
+                  </mesh>
+                  <mesh position={[0, -0.05, 0]}>
+                    <boxGeometry args={[0.1, 0.03, 0.001]} />
+                    <meshStandardMaterial color="#000000" />
+                  </mesh>
+                </group>
+              </group>
+            </mesh>
+
+            {/* RAM */}
+            <group position={positions.ram}>
+              <mesh position={[0, 0.25, 0]} receiveShadow castShadow>
+                <boxGeometry args={[0.1, 0.4, 0.2]} />
+                <meshStandardMaterial color="#475569" metalness={0.6} roughness={0.4} />
+
+                {/* RAM heatsink pattern */}
+                <mesh position={[0.051, 0, 0]}>
+                  <boxGeometry args={[0.001, 0.38, 0.18]} />
+                  <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+              </mesh>
+
+              <mesh position={[0, -0.25, 0]} receiveShadow castShadow>
+                <boxGeometry args={[0.1, 0.4, 0.2]} />
+                <meshStandardMaterial color="#475569" metalness={0.6} roughness={0.4} />
+
+                {/* RAM heatsink pattern */}
+                <mesh position={[0.051, 0, 0]}>
+                  <boxGeometry args={[0.001, 0.38, 0.18]} />
+                  <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+              </mesh>
+            </group>
+
+            {/* PSU */}
+            <mesh position={positions.psu} receiveShadow castShadow>
+              <boxGeometry args={[1.4, 0.6, 0.6]} />
+              <meshStandardMaterial color="#1e293b" metalness={0.7} roughness={0.3} />
+
+              {/* PSU details */}
+              <group>
+                <mesh position={[0, 0, 0.301]}>
+                  <planeGeometry args={[1.3, 0.5]} />
+                  <meshStandardMaterial color="#000000" metalness={0.8} roughness={0.2} />
+                </mesh>
+
+                {/* PSU fan */}
+                <mesh position={[0, 0, 0.302]} rotation={[0, 0, Math.PI / 4]}>
+                  <cylinderGeometry args={[0.2, 0.2, 0.001, 16]} />
+                  <meshStandardMaterial color="#64748b" metalness={0.6} roughness={0.4} />
+                </mesh>
+
+                {/* Power cable */}
+                <mesh position={[-0.65, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+                  <cylinderGeometry args={[0.05, 0.05, 0.1, 16]} />
+                  <meshStandardMaterial color="#000000" />
+                </mesh>
+              </group>
+            </mesh>
+
+            {/* Storage */}
+            <group position={positions.storage}>
+              {/* SSD */}
+              <mesh position={[0, 0.15, 0]} receiveShadow castShadow>
+                <boxGeometry args={[0.35, 0.25, 0.05]} />
+                <meshStandardMaterial color="#475569" metalness={0.6} roughness={0.4} />
+
+                {/* SSD label */}
+                <mesh position={[0, 0, 0.026]}>
+                  <planeGeometry args={[0.3, 0.2]} />
+                  <meshStandardMaterial color="#1e293b" />
+                </mesh>
+              </mesh>
+
+              {/* HDD */}
+              <mesh position={[0, -0.15, 0]} receiveShadow castShadow>
+                <boxGeometry args={[0.35, 0.25, 0.1]} />
+                <meshStandardMaterial color="#64748b" metalness={0.7} roughness={0.3} />
+
+                {/* HDD label */}
+                <mesh position={[0, 0, 0.051]}>
+                  <planeGeometry args={[0.3, 0.2]} />
+                  <meshStandardMaterial color="#334155" />
+                </mesh>
+              </mesh>
+            </group>
+
+            {/* Case fans */}
+            <group position={positions.fans}>
+              {/* Rear fan */}
+              <group position={[-0.9, 0.7, 0]}>
+                <mesh>
+                  <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
+                  <meshStandardMaterial color="#1e293b" transparent opacity={0.7} />
+                </mesh>
+                <mesh rotation={[0, 0, (state) => Math.sin(state.clock.getElapsedTime() * 5)]}>
+                  <torusGeometry args={[0.2, 0.02, 16, 100]} />
+                  <meshStandardMaterial color="#64748b" />
+                </mesh>
+                <mesh>
+                  <sphereGeometry args={[0.05, 16, 16]} />
+                  <meshStandardMaterial color="#94a3b8" />
+                </mesh>
+              </group>
+
+              {/* Front fans */}
+              <group position={[0, 0, -0.5]}>
+                <group position={[0, 0.7, 0]}>
+                  <mesh>
+                    <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
+                    <meshStandardMaterial color="#1e293b" transparent opacity={0.7} />
+                  </mesh>
+                  <mesh rotation={[0, 0, (state) => Math.sin(state.clock.getElapsedTime() * 5)]}>
+                    <torusGeometry args={[0.2, 0.02, 16, 100]} />
+                    <meshStandardMaterial color="#64748b" />
+                  </mesh>
+                  <mesh>
+                    <sphereGeometry args={[0.05, 16, 16]} />
+                    <meshStandardMaterial color="#94a3b8" />
+                  </mesh>
+                </group>
+
+                <group position={[0, 0, 0]}>
+                  <mesh>
+                    <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
+                    <meshStandardMaterial color="#1e293b" transparent opacity={0.7} />
+                  </mesh>
+                  <mesh rotation={[0, 0, (state) => Math.sin(state.clock.getElapsedTime() * 5)]}>
+                    <torusGeometry args={[0.2, 0.02, 16, 100]} />
+                    <meshStandardMaterial color="#64748b" />
+                  </mesh>
+                  <mesh>
+                    <sphereGeometry args={[0.05, 16, 16]} />
+                    <meshStandardMaterial color="#94a3b8" />
+                  </mesh>
+                </group>
+
+                <group position={[0, -0.7, 0]}>
+                  <mesh>
+                    <cylinderGeometry args={[0.3, 0.3, 0.05, 16]} />
+                    <meshStandardMaterial color="#1e293b" transparent opacity={0.7} />
+                  </mesh>
+                  <mesh rotation={[0, 0, (state) => Math.sin(state.clock.getElapsedTime() * 5)]}>
+                    <torusGeometry args={[0.2, 0.02, 16, 100]} />
+                    <meshStandardMaterial color="#64748b" />
+                  </mesh>
+                  <mesh>
+                    <sphereGeometry args={[0.05, 16, 16]} />
+                    <meshStandardMaterial color="#94a3b8" />
+                  </mesh>
+                </group>
+              </group>
+            </group>
+
+            {/* Component labels */}
+            {showLabels && (
+              <>
+                <Html position={[positions.cpu[0], positions.cpu[1], positions.cpu[2] + 0.5]} center>
+                  <Badge variant={hasIssues ? "destructive" : "secondary"} className="text-xs whitespace-nowrap">
+                    CPU: {getComponentName("cpu")}
+                  </Badge>
+                </Html>
+
+                <Html position={[positions.gpu[0], positions.gpu[1], positions.gpu[2] + 0.3]} center>
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    GPU: {getComponentName("gpu")}
+                  </Badge>
+                </Html>
+
+                <Html position={[positions.ram[0], positions.ram[1], positions.ram[2] + 0.3]} center>
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    RAM: {getComponentName("ram")}
+                  </Badge>
+                </Html>
+
+                <Html position={[positions.psu[0], positions.psu[1], positions.psu[2] + 0.4]} center>
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    PSU: {getComponentName("psu")}
+                  </Badge>
+                </Html>
+
+                <Html position={[positions.storage[0], positions.storage[1], positions.storage[2] + 0.3]} center>
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    Storage: {getComponentName("storage")}
+                  </Badge>
+                </Html>
+
+                <Html
+                  position={[positions.motherboard[0], positions.motherboard[1] - 1, positions.motherboard[2] + 0.2]}
+                  center
+                >
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    Motherboard: {getComponentName("motherboard")}
+                  </Badge>
+                </Html>
+
+                <Html position={[positions.case[0], positions.case[1] + 1.7, positions.case[2]]} center>
+                  <Badge variant="secondary" className="text-xs whitespace-nowrap">
+                    Case: {getComponentName("case")}
+                  </Badge>
+                </Html>
+              </>
+            )}
+          </>
+        )}
+      </mesh>
+
+      {/* Controls hint */}
+      <Html position={[0, -2, 0]} center>
+        <div className="bg-background/80 text-foreground px-2 py-1 rounded text-xs flex items-center">
+          <RotateCw className="h-3 w-3 mr-1" /> Drag to rotate, scroll to zoom
+        </div>
+      </Html>
+    </group>
+  )
+}
