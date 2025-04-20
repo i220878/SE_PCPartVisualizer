@@ -1,29 +1,38 @@
-import type React from "react"
-import "@/app/globals.css"
-import { Inter } from "next/font/google"
-import { ThemeProvider } from "@/components/theme-provider"
-import { Navbar } from "@/components/navbar"
+import "./globals.css";
+import { Inter } from "next/font/google";
+import { cn } from "@/lib/utils";
+import { ThemeProvider } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/sonner";
+import { Navbar } from "@/components/navbar";
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "PC Part Visualizer",
-  description: "Build and visualize your PC in 3D",
-}
+  title: "PC Builder",
+  description: "Build your dream PC",
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <body
+        className={cn(
+          "min-h-screen bg-background font-sans antialiased",
+          inter.className
+        )}
+      >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           <Navbar />
-          <main className="container py-6">{children}</main>
+          <div className="w-full max-w-7xl mx-auto px-4 py-8">
+            {children}
+          </div>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

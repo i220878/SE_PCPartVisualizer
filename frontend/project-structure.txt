@@ -1,0 +1,123 @@
+.
+├── app
+│   ├── community
+│   │   ├── loading.tsx
+│   │   └── page.tsx
+│   ├── globals.css
+│   ├── guides
+│   │   ├── create
+│   │   │   └── page.tsx
+│   │   ├── [id]
+│   │   │   └── page.tsx
+│   │   ├── loading.tsx
+│   │   └── page.tsx
+│   ├── help
+│   │   └── page.tsx
+│   ├── layout.tsx
+│   ├── loading.tsx
+│   ├── page.tsx
+│   └── parts
+│       ├── [id]
+│       │   └── page.tsx
+│       ├── loading.tsx
+│       └── page.tsx
+├── components
+│   ├── build-list.tsx
+│   ├── build-pdf.tsx
+│   ├── case-panel-toggle.tsx
+│   ├── component-search.tsx
+│   ├── lighting-controls.tsx
+│   ├── main-nav.tsx
+│   ├── mode-toggle.tsx
+│   ├── navbar.tsx
+│   ├── pc-visualizer.tsx
+│   ├── pdf-export.tsx
+│   ├── psu-calculator.tsx
+│   ├── saved-builds.tsx
+│   ├── shipping-estimates.tsx
+│   ├── theme-provider.tsx
+│   └── ui
+│       ├── accordion.tsx
+│       ├── alert-dialog.tsx
+│       ├── alert.tsx
+│       ├── aspect-ratio.tsx
+│       ├── avatar.tsx
+│       ├── badge.tsx
+│       ├── breadcrumb.tsx
+│       ├── button.tsx
+│       ├── calendar.tsx
+│       ├── card.tsx
+│       ├── carousel.tsx
+│       ├── chart.tsx
+│       ├── checkbox.tsx
+│       ├── collapsible.tsx
+│       ├── command.tsx
+│       ├── context-menu.tsx
+│       ├── dialog.tsx
+│       ├── drawer.tsx
+│       ├── dropdown-menu.tsx
+│       ├── form.tsx
+│       ├── hover-card.tsx
+│       ├── input-otp.tsx
+│       ├── input.tsx
+│       ├── label.tsx
+│       ├── menubar.tsx
+│       ├── navigation-menu.tsx
+│       ├── pagination.tsx
+│       ├── popover.tsx
+│       ├── progress.tsx
+│       ├── radio-group.tsx
+│       ├── resizable.tsx
+│       ├── scroll-area.tsx
+│       ├── select.tsx
+│       ├── separator.tsx
+│       ├── sheet.tsx
+│       ├── sidebar.tsx
+│       ├── skeleton.tsx
+│       ├── slider.tsx
+│       ├── sonner.tsx
+│       ├── switch.tsx
+│       ├── table.tsx
+│       ├── tabs.tsx
+│       ├── textarea.tsx
+│       ├── toaster.tsx
+│       ├── toast.tsx
+│       ├── toggle-group.tsx
+│       ├── toggle.tsx
+│       ├── tooltip.tsx
+│       ├── use-mobile.tsx
+│       └── use-toast.ts
+├── components.json
+├── .gitignore
+├── hooks
+│   ├── use-mobile.tsx
+│   └── use-toast.ts
+├── lib
+│   ├── compatibility.ts
+│   ├── export-pdf.ts
+│   ├── mock-data.ts
+│   ├── pdf-generator.ts
+│   ├── price-comparison.ts
+│   ├── psu-calculator.ts
+│   ├── share-build.ts
+│   ├── store.ts
+│   ├── types.ts
+│   └── utils.ts
+├── next.config.mjs
+├── next-env.d.ts
+├── package.json
+├── pnpm-lock.yaml
+├── postcss.config.mjs
+├── project-structure.txt
+├── public
+│   ├── placeholder.jpg
+│   ├── placeholder-logo.png
+│   ├── placeholder-logo.svg
+│   ├── placeholder.svg
+│   └── placeholder-user.jpg
+├── styles
+│   └── globals.css
+├── tailwind.config.ts
+└── tsconfig.json
+
+15 directories, 106 files
