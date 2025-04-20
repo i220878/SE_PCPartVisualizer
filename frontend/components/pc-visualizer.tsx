@@ -3,18 +3,49 @@
 import { useRef, useState } from "react"
 import { Canvas, useFrame, useThree } from "@react-three/fiber"
 import { OrbitControls, PerspectiveCamera, Environment, Html } from "@react-three/drei"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { AlertCircle, Maximize, Minimize, RotateCw, Eye, EyeOff, Layers } from "lucide-react"
+import {
+  AlertCircle,
+  Maximize,
+  Minimize,
+  RotateCw,
+  Eye,
+  EyeOff,
+  Layers,
+  Download,
+  Share2,
+  Palette,
+  Lightbulb,
+} from "lucide-react"
 import { useBuildStore } from "@/lib/store"
 import { checkCompatibility } from "@/lib/compatibility"
+import { exportBuildToPDF } from "@/lib/export-pdf"
+import { copyShareableLink } from "@/lib/share-build"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Slider } from "@/components/ui/slider"
+import { useToast } from "@/hooks/use-toast"
+import { HexColorPicker } from "react-colorful"
 
 export default function PCVisualizer() {
   const { currentBuild } = useBuildStore()
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showLabels, setShowLabels] = useState(true)
   const [explodedView, setExplodedView] = useState(false)
+  const [sidePanel, setSidePanel] = useState<"left" | "right" | "none">("right")
+  const [lightingEnabled, setLightingEnabled] = useState(false)
+  const [lightingColor, setLightingColor] = useState("#ff0000")
+  const [lightingIntensity, setLightingIntensity] = useState(50)
+  const { toast } = useToast()
   const compatibilityIssues = checkCompatibility(currentBuild.components)
 
   const toggleFullscreen = () => {
@@ -29,6 +60,48 @@ export default function PCVisualizer() {
     setExplodedView(!explodedView)
   }
 
+  const handleExportPDF = () => {
+    if (currentBuild.components.length === 0) {
+      toast({
+        title: "No components selected",
+        description: "Add components to your build before exporting",
+        variant: "destructive",
+      })
+      return
+    }
+
+    exportBuildToPDF(currentBuild)
+    toast({
+      title: "PDF Exported",
+      description: "Your build has been exported as a PDF",
+    })
+  }
+
+  const handleShareBuild = async () => {
+    if (currentBuild.components.length === 0) {
+      toast({
+        title: "No components selected",
+        description: "Add components to your build before sharing",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const success = await copyShareableLink(currentBuild)
+    if (success) {
+      toast({
+        title: "Link Copied",
+        description: "Shareable link copied to clipboard",
+      })
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to copy link to clipboard",
+        variant: "destructive",
+      })
+    }
+  }
+
   return (
     <Card className={`w-full ${isFullscreen ? "fixed inset-0 z-50 rounded-none" : ""}`}>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -41,6 +114,112 @@ export default function PCVisualizer() {
           </CardDescription>
         </div>
         <div className="flex gap-2">
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" title="Customize lighting">
+                <Lightbulb className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Customize Lighting</DialogTitle>
+                <DialogDescription>Adjust RGB lighting settings for your PC build</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="flex items-center justify-between">
+                  <span>Enable RGB Lighting</span>
+                  <Button
+                    variant={lightingEnabled ? "default" : "outline"}
+                    onClick={() => setLightingEnabled(!lightingEnabled)}
+                  >
+                    {lightingEnabled ? "On" : "Off"}
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Lighting Color</label>
+                  <HexColorPicker color={lightingColor} onChange={setLightingColor} />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <label className="text-sm font-medium">Intensity</label>
+                    <span className="text-sm">{lightingIntensity}%</span>
+                  </div>
+                  <Slider
+                    value={[lightingIntensity]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={(value) => setLightingIntensity(value[0])}
+                  />
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="icon" title="Case options">
+                <Palette className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Case Options</DialogTitle>
+                <DialogDescription>Customize your PC case view</DialogDescription>
+              </DialogHeader>
+              <Tabs defaultValue="panels" className="py-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="panels">Side Panels</TabsTrigger>
+                  <TabsTrigger value="view">View Options</TabsTrigger>
+                </TabsList>
+                <TabsContent value="panels" className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Side Panel</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        variant={sidePanel === "left" ? "default" : "outline"}
+                        onClick={() => setSidePanel("left")}
+                        className="h-20"
+                      >
+                        Left Panel
+                      </Button>
+                      <Button
+                        variant={sidePanel === "none" ? "default" : "outline"}
+                        onClick={() => setSidePanel("none")}
+                        className="h-20"
+                      >
+                        No Panels
+                      </Button>
+                      <Button
+                        variant={sidePanel === "right" ? "default" : "outline"}
+                        onClick={() => setSidePanel("right")}
+                        className="h-20"
+                      >
+                        Right Panel
+                      </Button>
+                    </div>
+                  </div>
+                </TabsContent>
+                <TabsContent value="view" className="space-y-4 pt-4">
+                  <div className="flex items-center justify-between">
+                    <span>Exploded View</span>
+                    <Button variant={explodedView ? "default" : "outline"} onClick={toggleExplodedView}>
+                      {explodedView ? "On" : "Off"}
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Component Labels</span>
+                    <Button variant={showLabels ? "default" : "outline"} onClick={toggleLabels}>
+                      {showLabels ? "On" : "Off"}
+                    </Button>
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </DialogContent>
+          </Dialog>
+
           <Button
             variant="outline"
             size="icon"
@@ -49,6 +228,7 @@ export default function PCVisualizer() {
           >
             {showLabels ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </Button>
+
           <Button
             variant="outline"
             size="icon"
@@ -57,6 +237,7 @@ export default function PCVisualizer() {
           >
             <Layers className="h-4 w-4" />
           </Button>
+
           <Button variant="outline" size="icon" onClick={toggleFullscreen}>
             {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
           </Button>
@@ -76,6 +257,10 @@ export default function PCVisualizer() {
             showLabels={showLabels}
             explodedView={explodedView}
             components={currentBuild.components}
+            sidePanel={sidePanel}
+            lightingEnabled={lightingEnabled}
+            lightingColor={lightingColor}
+            lightingIntensity={lightingIntensity / 100}
           />
 
           <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} minDistance={2} maxDistance={10} />
@@ -95,24 +280,40 @@ export default function PCVisualizer() {
             </div>
           </div>
         )}
-
-        {currentBuild.components.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
-            <div className="text-center p-4">
-              <div className="text-lg font-medium mb-2">No components selected</div>
-              <p className="text-muted-foreground">Add components to your build to see them in 3D</p>
-            </div>
-          </div>
-        )}
       </CardContent>
+      <CardFooter className="flex justify-between">
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={handleExportPDF} disabled={currentBuild.components.length === 0}>
+            <Download className="mr-2 h-4 w-4" /> Export PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShareBuild}
+            disabled={currentBuild.components.length === 0}
+          >
+            <Share2 className="mr-2 h-4 w-4" /> Share Build
+          </Button>
+        </div>
+      </CardFooter>
     </Card>
   )
 }
 
-function DetailedPCCase({ hasComponents, compatibilityIssues, showLabels, explodedView, components }) {
+function DetailedPCCase({
+  hasComponents,
+  compatibilityIssues,
+  showLabels,
+  explodedView,
+  components,
+  sidePanel,
+  lightingEnabled,
+  lightingColor,
+  lightingIntensity,
+}) {
   const groupRef = useRef()
   const hasIssues = compatibilityIssues.length > 0
-  const { viewport } = useThree()
+  const { viewport, gl } = useThree()
 
   // Slowly rotate the entire PC
   useFrame((state) => {
@@ -138,6 +339,14 @@ function DetailedPCCase({ hasComponents, compatibilityIssues, showLabels, explod
     const component = components.find((c) => c.category === category)
     return component ? component.name : category.toUpperCase()
   }
+
+  // Create RGB lighting
+  const rgbLightRef = useRef()
+  useFrame((state) => {
+    if (rgbLightRef.current && lightingEnabled) {
+      rgbLightRef.current.intensity = lightingIntensity
+    }
+  })
 
   return (
     <group ref={groupRef}>
@@ -188,19 +397,48 @@ function DetailedPCCase({ hasComponents, compatibilityIssues, showLabels, explod
           </group>
         </mesh>
 
-        {/* Side panel (tempered glass) */}
-        <mesh position={[1.11, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-          <planeGeometry args={[1.2, 3]} />
-          <meshPhysicalMaterial
-            color="#94a3b8"
-            transparent
-            opacity={0.3}
-            metalness={0.9}
-            roughness={0}
-            transmission={0.9}
-            thickness={0.05}
+        {/* Side panel (tempered glass) - configurable */}
+        {sidePanel === "right" && (
+          <mesh position={[1.11, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+            <planeGeometry args={[1.2, 3]} />
+            <meshPhysicalMaterial
+              color="#94a3b8"
+              transparent
+              opacity={0.3}
+              metalness={0.9}
+              roughness={0}
+              transmission={0.9}
+              thickness={0.05}
+            />
+          </mesh>
+        )}
+
+        {/* Left side panel - configurable */}
+        {sidePanel === "left" && (
+          <mesh position={[-1.11, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+            <planeGeometry args={[1.2, 3]} />
+            <meshPhysicalMaterial
+              color="#94a3b8"
+              transparent
+              opacity={0.3}
+              metalness={0.9}
+              roughness={0}
+              transmission={0.9}
+              thickness={0.05}
+            />
+          </mesh>
+        )}
+
+        {/* RGB Lighting */}
+        {lightingEnabled && (
+          <pointLight
+            ref={rgbLightRef}
+            position={[0, 0, 0]}
+            intensity={lightingIntensity}
+            distance={3}
+            color={lightingColor}
           />
-        </mesh>
+        )}
 
         {/* Components inside */}
         {hasComponents && (

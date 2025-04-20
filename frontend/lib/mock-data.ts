@@ -407,3 +407,161 @@ export const mockComponents: Component[] = [
     price: 109.99,
   },
 ]
+
+// Mock data for price comparisons
+export const getPriceComparisons = (componentId: string) => {
+  return [
+    {
+      retailer: "Amazon",
+      price: Math.round((getComponentPrice(componentId) - 5 + Math.random() * 10) * 100) / 100,
+      url: "https://amazon.com",
+    },
+    {
+      retailer: "Newegg",
+      price: Math.round((getComponentPrice(componentId) + Math.random() * 15) * 100) / 100,
+      url: "https://newegg.com",
+    },
+    {
+      retailer: "Best Buy",
+      price: Math.round((getComponentPrice(componentId) + 10 - Math.random() * 10) * 100) / 100,
+      url: "https://bestbuy.com",
+    },
+    {
+      retailer: "Micro Center",
+      price: Math.round((getComponentPrice(componentId) - 10 + Math.random() * 20) * 100) / 100,
+      url: "https://microcenter.com",
+    },
+  ]
+}
+
+// Helper function to get component price
+const getComponentPrice = (componentId: string) => {
+  const component = mockComponents.find((c) => c.id === componentId)
+  return component ? component.price : 100
+}
+
+// Mock data for build guides
+export const mockBuildGuides = [
+  {
+    id: "guide-1",
+    title: "Budget Gaming PC Build",
+    description: "A budget-friendly gaming PC build that can handle most modern games at 1080p.",
+    difficulty: "Beginner",
+    estimatedTime: "2-3 hours",
+    components: ["cpu-3", "mb-3", "ram-2", "gpu-4", "storage-4", "psu-3", "case-2"],
+    author: "PCBuildPro",
+    date: "2023-05-15",
+    likes: 245,
+    views: 12500,
+  },
+  {
+    id: "guide-2",
+    title: "High-End Gaming PC Build",
+    description: "A high-end gaming PC build that can handle 4K gaming and content creation.",
+    difficulty: "Intermediate",
+    estimatedTime: "3-4 hours",
+    components: ["cpu-2", "mb-2", "ram-1", "gpu-3", "storage-3", "psu-2", "case-4"],
+    author: "TechGuru",
+    date: "2023-06-22",
+    likes: 378,
+    views: 18900,
+  },
+  {
+    id: "guide-3",
+    title: "Compact Mini-ITX Build",
+    description: "A compact Mini-ITX build that's perfect for small spaces.",
+    difficulty: "Advanced",
+    estimatedTime: "4-5 hours",
+    components: ["cpu-1", "mb-1", "ram-3", "gpu-1", "storage-1", "psu-1", "case-1"],
+    author: "SFFMaster",
+    date: "2023-07-10",
+    likes: 156,
+    views: 8700,
+  },
+  {
+    id: "guide-4",
+    title: "Workstation Build for Content Creation",
+    description: "A powerful workstation build for video editing, 3D rendering, and other content creation tasks.",
+    difficulty: "Intermediate",
+    estimatedTime: "3-4 hours",
+    components: ["cpu-1", "mb-1", "ram-4", "gpu-2", "storage-3", "psu-2", "case-3"],
+    author: "CreatorPro",
+    date: "2023-08-05",
+    likes: 210,
+    views: 11200,
+  },
+]
+
+// Mock data for user-submitted builds
+export const mockUserBuilds = [
+  {
+    id: "build-1",
+    title: "My First Gaming PC",
+    description: "My first gaming PC build. It's not much, but it's mine!",
+    components: ["cpu-3", "mb-3", "ram-2", "gpu-4", "storage-4", "psu-3", "case-2"],
+    author: "GamerNewbie",
+    date: "2023-06-10",
+    likes: 45,
+    comments: 12,
+    images: ["/placeholder.svg?height=400&width=600"],
+  },
+  {
+    id: "build-2",
+    title: "Dream 4K Gaming Rig",
+    description: "Finally built my dream 4K gaming rig. It's a beast!",
+    components: ["cpu-2", "mb-2", "ram-1", "gpu-3", "storage-3", "psu-2", "case-4"],
+    author: "4KGamer",
+    date: "2023-07-15",
+    likes: 87,
+    comments: 24,
+    images: ["/placeholder.svg?height=400&width=600", "/placeholder.svg?height=400&width=600"],
+  },
+  {
+    id: "build-3",
+    title: "Compact Powerhouse",
+    description: "A small form factor build that packs a punch.",
+    components: ["cpu-1", "mb-1", "ram-3", "gpu-1", "storage-1", "psu-1", "case-1"],
+    author: "SFFEnthusiast",
+    date: "2023-08-20",
+    likes: 62,
+    comments: 18,
+    images: ["/placeholder.svg?height=400&width=600"],
+  },
+  {
+    id: "build-4",
+    title: "Budget Streaming Setup",
+    description: "A budget-friendly PC build for streaming and light gaming.",
+    components: ["cpu-3", "mb-4", "ram-2", "gpu-4", "storage-2", "psu-3", "case-2"],
+    author: "StreamerOnABudget",
+    date: "2023-09-05",
+    likes: 34,
+    comments: 9,
+    images: ["/placeholder.svg?height=400&width=600"],
+  },
+]
+
+// Mock data for shipping estimates
+export const getShippingEstimates = (componentId: string) => {
+  return [
+    {
+      retailer: "Amazon",
+      days: Math.floor(Math.random() * 3) + 1,
+      price: Math.random() > 0.5 ? 0 : 4.99,
+    },
+    {
+      retailer: "Newegg",
+      days: Math.floor(Math.random() * 4) + 2,
+      price: Math.random() > 0.3 ? 0 : 5.99,
+    },
+    {
+      retailer: "Best Buy",
+      days: Math.floor(Math.random() * 3) + 1,
+      price: Math.random() > 0.7 ? 0 : 3.99,
+    },
+    {
+      retailer: "Micro Center",
+      days: Math.floor(Math.random() * 5) + 3,
+      price: 7.99,
+    },
+  ]
+}
