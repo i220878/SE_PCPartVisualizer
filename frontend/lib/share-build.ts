@@ -1,31 +1,41 @@
 import type { Component } from "@/lib/types"
 
 export async function copyShareableLink(build: {
+  id?: string
   name: string
   date: string
   components: Component[]
 }): Promise<boolean> {
   try {
-    // Convert build data to a compressed string
-    const buildData = {
-      n: build.name,
-      d: build.date,
-      c: build.components.map(c => ({
-        i: c.id,
-        n: c.name,
-        b: c.brand,
-        p: c.price,
-        t: c.category
-      }))
-    }
-
-    // Compress the data
-    const compressedData = btoa(JSON.stringify(buildData))
+    // Get the build ID or use 'current' as default
+    const buildId = build.id || 'current'
     
-    // Generate the shareable URL
+    // If buildId is 'current', we'll need to include the build data in the request
+    const requestOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: buildId === 'current' ? JSON.stringify({
+        name: build.name || 'Untitled Build',
+        components: build.components,
+        description: 'A PC build created with PC Part Visualizer'
+      }) : undefined
+    }
+    
+    // Call the API to share the build
+    const response = await fetch(`/api/builds/${buildId}/share`, requestOptions)
+    
+    if (!response.ok) {
+      throw new Error('Failed to share build')
+    }
+    
+    const data = await response.json()
+    
+    // Generate shareable URL from the response
     const baseUrl = window.location.origin
-    const shareUrl = `${baseUrl}/share?build=${compressedData}`
-
+    const shareUrl = `${baseUrl}${data.shareableUrl}`
+    
     // Copy to clipboard
     await navigator.clipboard.writeText(shareUrl)
     return true
@@ -60,4 +70,4 @@ export function parseSharedBuild(compressedData: string): {
     console.error("Failed to parse shared build:", error)
     return null
   }
-} 
+}

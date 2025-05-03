@@ -22,7 +22,6 @@ import {
 import { useBuildStore } from "@/lib/store"
 import { checkCompatibility } from "@/lib/compatibility"
 import { exportBuildToPDF } from "@/lib/export-pdf"
-import { copyShareableLink } from "@/lib/share-build"
 import {
   Dialog,
   DialogContent,
@@ -87,16 +86,48 @@ export default function PCVisualizer() {
       return
     }
 
-    const success = await copyShareableLink(currentBuild)
-    if (success) {
+    try {
+      // Get the build ID or use 'current' as default
+      const buildId = currentBuild.id || 'current'
+      
+      // If buildId is 'current', we'll need to include the build data in the request
+      const requestOptions = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: buildId === 'current' ? JSON.stringify({
+          name: currentBuild.name || 'Untitled Build',
+          components: currentBuild.components,
+          description: 'A PC build created with PC Part Visualizer'
+        }) : undefined
+      }
+      
+      // Call the API to share the build
+      const response = await fetch(`/api/builds/${buildId}/share`, requestOptions)
+      
+      if (!response.ok) {
+        throw new Error('Failed to share build')
+      }
+      
+      const data = await response.json()
+      
+      // Generate shareable URL from the response
+      const baseUrl = window.location.origin
+      const shareUrl = `${baseUrl}${data.shareableUrl}`
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareUrl)
+      
       toast({
         title: "Link Copied",
         description: "Shareable link copied to clipboard",
       })
-    } else {
+    } catch (error) {
+      console.error("Failed to generate shareable link:", error)
       toast({
         title: "Error",
-        description: "Failed to copy link to clipboard",
+        description: "Failed to generate shareable link",
         variant: "destructive",
       })
     }

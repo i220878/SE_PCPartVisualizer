@@ -1,0 +1,128 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  builds        Build[]
+  comments      Comment[]
+  reviews       Review[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Build {
+  id          String    @id @default(cuid())
+  name        String
+  description String?   @db.Text
+  isShared    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String?
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  components  Component[]
+  views       Int       @default(0)
+  likes       Int       @default(0)
+  comments    Comment[]
+  guides      Guide[]
+}
+
+model Component {
+  id        String   @id @default(cuid())
+  name      String
+  brand     String
+  category  String
+  price     Float
+  specs     Json     @default("{}")
+  buildId   String?
+  build     Build?   @relation(fields: [buildId], references: [id], onDelete: Cascade)
+  reviews   Review[]
+}
+
+model Review {
+  id          String    @id @default(cuid())
+  title       String
+  content     String    @db.Text
+  rating      Int
+  pros        String[]
+  cons        String[]
+  helpful     Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  componentId String
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  buildId   String
+  build     Build    @relation(fields: [buildId], references: [id], onDelete: Cascade)
+}
+
+model Guide {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  difficulty  String   @default("beginner")
+  steps       Json[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  buildId     String?
+  build       Build?   @relation(fields: [buildId], references: [id])
+  views       Int      @default(0)
+  likes       Int      @default(0)
+}
