@@ -1271,6 +1271,23 @@ ALTER TABLE ONLY public."UserBuild"
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
 --
 
+SELECT "userBuildId", COUNT(*)
+FROM "UserBuildImage"
+GROUP BY "userBuildId"
+HAVING COUNT(*) > 1;
+
+DELETE FROM "UserBuildImage"
+WHERE id NOT IN (
+  SELECT MIN(id)
+  FROM "UserBuildImage"
+  GROUP BY "userBuildId"
+);
+
+SELECT "userBuildId", COUNT(*)
+FROM "UserBuildImage"
+GROUP BY "userBuildId"
+HAVING COUNT(*) > 1;
+
 GRANT ALL ON SCHEMA public TO sameed;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sameed;
 
