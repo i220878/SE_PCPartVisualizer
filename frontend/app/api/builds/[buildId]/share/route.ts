@@ -1,131 +1,163 @@
 import { NextResponse } from 'next/server';
-// Double-check this import path and the file content
 import { prisma } from '@/lib/prisma';
+import { v4 as uuidv4 } from 'uuid';
 
-// Correct signature: use context
-export async function POST(request: Request, context: { params: Promise<{ buildId: string }> }) {
+export async function POST(
+  request: Request,
+  { params }: { params: { buildId: string } }
+) {
   try {
-    // --- FIX 1: Await params ---
-    const resolvedParams = await context.params;
-    const buildId = resolvedParams?.buildId;
-    // --- End Fix 1 ---
-
-    if (!buildId) { // Check the resolved buildId
-      return NextResponse.json(
-        { error: 'Build ID is required' },
-        { status: 400 }
-      );
+    const { buildId } = await params;
+    
+    if (!buildId) {
+      return NextResponse.json({ error: 'Build ID is required' }, { status: 400 });
     }
 
-    // --- FIX 2: Ensure prisma is valid before using ---
-    if (!prisma || !prisma.build) {
-         console.error("Prisma client or prisma.build is not initialized correctly.");
-         // Log the prisma object itself to see what it is
-         console.log("Imported prisma object:", prisma);
-         return NextResponse.json({ error: 'Server configuration error (Prisma)' }, { status: 500 });
-    }
-    // --- End Fix 2 ---
-
-
-    // If buildId is 'current', create a new build from the request body
     if (buildId === 'current') {
-      const buildData = await request.json();
-
-      if (!buildData || !buildData.components || !buildData.components.length) {
+      const body = await request.json();
+      
+      // Validate component data format
+      if (!body?.components?.length || !body.components.every((c: any) => 
+        c.name && c.brand && c.category && typeof c.price === 'number'
+      )) {
         return NextResponse.json(
-          { error: 'Invalid build data. Components are required.' },
+          { error: 'Invalid component data structure' },
           { status: 400 }
         );
       }
 
       try {
-        // Now this should work if prisma is imported correctly
-        const newBuild = await prisma.build.create({
+        const newBuild = await prisma.userBuild.create({
           data: {
-            name: buildData.name || 'Untitled Build',
-            description: buildData.description || 'A build created with PC Part Visualizer',
-            isShared: true, // Assuming new builds via 'current' are shared immediately
-            userId: buildData.userId || null, // Make sure userId is provided if needed
-            components: {
-              create: buildData.components.map((component: any) => ({ // Add type safety if possible
-                name: component.name,
-                brand: component.brand,
-                category: component.category,
-                price: component.price,
-                specs: component.specs || {}
-              }))
+            id: uuidv4(),
+            title: body.title || 'Untitled Build',
+            description: body.description || '',
+            date: new Date(),
+            shared: true,
+            authorId: body.authorId ? Number(body.authorId) : undefined,
+            UserBuildComponent: {
+              create: await Promise.all(
+                body.components.map(async (component) => ({
+                  Component: {
+                    connectOrCreate: {
+                      where: {
+                        name_brand_category_price: { // Corrected constraint name
+                          name: component.name,
+                          brand: component.brand,
+                          category: component.category,
+                          price: component.price
+                        }
+                      },
+                      create: {
+                        name: component.name,
+                        brand: component.brand,
+                        category: component.category,
+                        price: Number(component.price),
+                        ComponentSpec: {
+                          connectOrCreate: (component.specs || []).map(spec => ({
+                            where: {
+                              component_spec_unique: {
+                                componentId: "", // Will be bound automatically
+                                name: spec.name
+                              }
+                            },
+                            create: {
+                              name: spec.name.substring(0, 255),
+                              value: String(spec.value).substring(0, 511)
+                            }
+                          }))
+                        }
+                      }
+                    }
+                  }
+                }))
+              )
             }
           },
           include: {
-            components: true
+            UserBuildComponent: {
+              include: {
+                Component: {
+                  include: {
+                    ComponentSpec: true
+                  }
+                }
+              }
+            }
           }
         });
 
+        const origin = process.env.NEXTAUTH_URL || "http://localhost:3000"; ;
         const shareableUrl = `/builds/${newBuild.id}`;
+
+        await prisma.userBuildImage.upsert({
+          where: { userBuildId: newBuild.id },
+          create: { userBuildId: newBuild.id, url: shareableUrl },
+          update: { url: shareableUrl }
+        });
 
         return NextResponse.json({
           success: true,
-          buildId: newBuild.id, // Return the ID of the *new* build
           shareableUrl,
-          build: newBuild
+          build: {
+            ...newBuild,
+            components: newBuild.UserBuildComponent.map(ubc => ubc.Component)
+          }
         });
+
       } catch (error) {
-        console.error('Prisma error creating build:', error);
+        console.error('Prisma error:', error);
         return NextResponse.json(
-          { error: 'Database error while creating build' },
+          { error: 'Database operation failed. Check data formats.' },
           { status: 500 }
         );
       }
     }
 
-    // --- Logic for existing buildId ---
-    let existingBuild;
-    try {
-      existingBuild = await prisma.build.findUnique({
-        where: { id: buildId } // Use the resolved buildId
-      });
-    } catch (error) {
-      console.error('Prisma error finding build:', error);
-      return NextResponse.json(
-        { error: 'Database error finding build' },
-        { status: 500 }
-      );
-    }
+    // Rest of your existing code for non-current builds...
+
+    // Handle existing build sharing
+    const existingBuild = await prisma.userBuild.findUnique({
+      where: { id: buildId },
+      include: {
+        UserBuildComponent: {
+          include: {
+            component: {
+              include: {
+                ComponentSpec: true
+              }
+            }
+          }
+        }
+      }
+    });
 
     if (!existingBuild) {
       return NextResponse.json(
-        { error: `Build not found with ID: ${buildId}` },
+        { error: `No build found for ID ${buildId}` },
         { status: 404 }
       );
     }
 
-    const updatedBuild = await prisma.build.update({
-      where: { id: buildId },
-      data: {
-        isShared: true,
-        updatedAt: new Date()
-      },
-      include: { components: true }
-    });
+    const origin = process.env.NEXTAUTH_URL || "http://localhost:3000"; ;
+    const shareableUrl = `/builds/${existingBuild.id}`;
 
-    const shareableUrl = `/builds/${buildId}`;
+    await prisma.userBuildImage.upsert({
+      where: { userBuildId: existingBuild.id },
+      update: { url: shareableUrl },
+      create: { userBuildId: existingBuild.id, url: shareableUrl }
+    });
 
     return NextResponse.json({
       success: true,
-      buildId, // Return the existing buildId
       shareableUrl,
-      build: updatedBuild
+      build: existingBuild
     });
 
   } catch (error) {
-    // Catch potential errors like request.json() failing
-    console.error('Error in POST /api/builds/[buildId]/share:', error);
-    // Check if it's a SyntaxError from invalid JSON
-    if (error instanceof SyntaxError) {
-        return NextResponse.json({ error: 'Invalid JSON in request body' }, { status: 400 });
-    }
+    console.error('Global error:', error);
     return NextResponse.json(
-      { error: 'Failed to process share request' },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

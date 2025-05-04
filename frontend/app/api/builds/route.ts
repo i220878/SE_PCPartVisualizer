@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: Request) {
   try {
@@ -14,8 +15,9 @@ export async function POST(request: Request) {
     }
 
     // Create the build with its components
-    const build = await prisma.build.create({
+    const build = await prisma.UserBuild.create({
       data: {
+        id: uuidv4(),
         name: buildData.name || 'Untitled Build',
         description: buildData.description,
         isShared: buildData.isShared || false,

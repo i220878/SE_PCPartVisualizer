@@ -1,82 +1,60 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
-import { getGuidesByBuildId, createGuide } from '@/lib/store/guides';
-import { getBuildById } from '@/lib/store/builds';
+import { v4 as uuidv4 } from 'uuid';
 
-interface BuildGuidesParams {
-  params: {
-    buildId: string;
-  };
-}
-
-export async function GET(request: Request, { params }: BuildGuidesParams) {
-  try {
-    const { buildId } = params;
-    
-    // Check if build exists
-    const build = getBuildById(buildId);
-    if (!build) {
-      return NextResponse.json(
-        { error: 'Build not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Get all guides for this build
-    const guides = getGuidesByBuildId(buildId);
-    
-    return NextResponse.json(guides);
-  } catch (error) {
-    console.error('Error retrieving guides for build:', error);
+export async function GET(
+  _request: Request,
+  { params }: { params: { buildId: string } }
+) {
+  const { buildId } = params;
+  // 1) ensure the build exists
+  const build = await prisma.UserBuild.findUnique({ where: { id: buildId } });
+  if (!build) {
     return NextResponse.json(
-      { error: 'Failed to retrieve guides' },
-      { status: 500 }
+      { error: 'Build not found' },
+      { status: 404 }
     );
   }
+  // 2) fetch its guides
+  const guides = await prisma.BuildGuide.findMany({
+    where: { buildId },
+    orderBy: { createdAt: 'asc' }
+  });
+  return NextResponse.json(guides);
 }
 
-export async function POST(request: Request, { params }: BuildGuidesParams) {
-  try {
-    const { buildId } = params;
-    const guideData = await request.json();
-    
-    // Check if build exists
-    const build = getBuildById(buildId);
-    if (!build) {
-      return NextResponse.json(
-        { error: 'Build not found' },
-        { status: 404 }
-      );
-    }
-    
-    // Validate guide data
-    if (!guideData || !guideData.title) {
-      return NextResponse.json(
-        { error: 'Invalid guide data. Title required.' },
-        { status: 400 }
-      );
-    }
+export async function POST(
+  request: Request,
+  { params }: { params: { buildId: string } }
+) {
+  const { buildId } = params;
+  const build = await prisma.UserBuild.findUnique({ where: { id: buildId } });
+  if (!build) {
+    return NextResponse.json(
+      { error: 'Build not found' },
+      { status: 404 }
+    );
+  }
 
-    // Generate a unique ID for the guide
-    const guideId = randomUUID();
-    
-    // Create guide with build reference
-    const guide = createGuide({
-      id: guideId,
+  const body = await request.json();
+  if (!body?.title) {
+    return NextResponse.json(
+      { error: 'Invalid guide data. Title is required.' },
+      { status: 400 }
+    );
+  }
+
+  const newGuide = await prisma.BuildGuide.create({
+    data: {
+      id: randomUUID(),
       buildId,
-      ...guideData,
-    });
+      title: body.title,
+      description: body.description,
+      difficulty: body.difficulty ?? 'beginner',
+      steps: body.steps ?? [],
+    }
+  });
 
-    return NextResponse.json({
-      success: true,
-      guideId,
-      guide,
-    });
-  } catch (error) {
-    console.error('Error creating build guide:', error);
-    return NextResponse.json(
-      { error: 'Failed to create build guide' },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({ success: true, guide: newGuide });
 }

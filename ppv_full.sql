@@ -1271,7 +1271,8 @@ ALTER TABLE ONLY public."UserBuild"
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: pg_database_owner
 --
 
-GRANT ALL ON SCHEMA public TO taha;
+GRANT ALL ON SCHEMA public TO sameed;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO sameed;
 
 
 --

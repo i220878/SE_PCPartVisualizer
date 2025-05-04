@@ -6,24 +6,33 @@ export async function GET(
   { params }: { params: { buildId: string } }
 ) {
   try {
+    // Properly destructure params without await
     const { buildId } = params;
     
-    // Get build from database with components
-    const build = await prisma.build.findUnique({
+    // Get build with correct relations
+    const build = await prisma.userBuild.findUnique({
       where: { id: buildId },
       include: { 
-        components: true,
-        user: {
+        UserBuildComponent: {
+          include: {
+            Component: {
+              include: {
+                ComponentSpec: true
+              }
+            }
+          }
+        },
+        User: {
           select: {
             id: true,
             name: true,
             image: true,
           }
-        }
+        },
+        UserBuildImage: true
       }
     });
 
-    // Check if build exists
     if (!build) {
       return NextResponse.json(
         { error: 'Build not found' },
@@ -31,17 +40,22 @@ export async function GET(
       );
     }
 
-    // If build is not shared and no authentication/authorization is implemented yet,
-    // we'll still return it for now (in production, you'd check user permissions)
-    
     // Increment view counter
-    await prisma.build.update({
+    await prisma.userBuild.update({
       where: { id: buildId },
-      data: { views: { increment: 1 } }
+      data: { likes: { increment: 1 } }
     });
     
-    // Return the build data
-    return NextResponse.json(build);
+    // Format response with components and image
+    return NextResponse.json({
+      ...build,
+      components: build.UserBuildComponent.map(ubc => ({
+        ...ubc.Component,
+        specs: ubc.Component.ComponentSpec
+      })),
+      imageUrl: build.UserBuildImage[0]?.url || null
+    });
+
   } catch (error) {
     console.error('Error retrieving build:', error);
     return NextResponse.json(
@@ -59,8 +73,7 @@ export async function PATCH(
     const { buildId } = params;
     const updateData = await request.json();
     
-    // Check if build exists
-    const existingBuild = await prisma.build.findUnique({
+    const existingBuild = await prisma.userBuild.findUnique({
       where: { id: buildId }
     });
     
@@ -71,14 +84,19 @@ export async function PATCH(
       );
     }
     
-    // Update the build with new data
-    const updatedBuild = await prisma.build.update({
+    const updatedBuild = await prisma.userBuild.update({
       where: { id: buildId },
       data: {
         ...updateData,
         updatedAt: new Date(),
       },
-      include: { components: true }
+      include: {
+        UserBuildComponent: {
+          include: {
+            Component: true
+          }
+        }
+      }
     });
     
     return NextResponse.json(updatedBuild);
@@ -98,8 +116,7 @@ export async function DELETE(
   try {
     const { buildId } = params;
     
-    // Check if build exists
-    const existingBuild = await prisma.build.findUnique({
+    const existingBuild = await prisma.userBuild.findUnique({
       where: { id: buildId }
     });
     
@@ -110,8 +127,7 @@ export async function DELETE(
       );
     }
     
-    // Delete the build and its related components
-    await prisma.build.delete({
+    await prisma.userBuild.delete({
       where: { id: buildId }
     });
     
