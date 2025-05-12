@@ -1,15 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Star, StarHalf, Plus, ThumbsUp, ThumbsDown, ExternalLink } from "lucide-react"
+import { ArrowLeft, Star, StarHalf, Plus, ThumbsUp, ThumbsDown, ExternalLink, Loader2, AlertCircle } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Progress } from "@/components/ui/progress"
-import { useRouter } from "next/navigation"
 import { mockComponents } from "@/lib/mock-data"
 import { getPriceComparisons } from "@/lib/price-comparison"
 
@@ -59,23 +59,91 @@ const reviews = [
   },
 ]
 
-export default function PartPage({ params }: { params: { id: string } }) {
+export default function PartPage() {
   const router = useRouter()
+  const params = useParams<{ id: string }>()
   const [activeTab, setActiveTab] = useState("specs")
+  const [component, setComponent] = useState<any>(null)
+  const [reviews, setReviews] = useState<any[]>([])
+  const [averageRating, setAverageRating] = useState(0)
+  const [ratingDistribution, setRatingDistribution] = useState([0, 0, 0, 0, 0])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [specs, setSpecs] = useState<any[]>([])
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
 
-  // Find the component by ID
-  const component = mockComponents.find((c) => c.id === params.id) || mockComponents[0]
-  const priceComparisons = getPriceComparisons(component.id)
+        // Find mock component
+        const mockComponent = mockComponents.find(c => c.id === params.id)
+        if (!mockComponent) {
+          throw new Error('Component not found')
+        }
+        setComponent(mockComponent)
+        //fetch specs from API
+        const specsRes = await fetch(`/api/components/${params.id}/specs`)
+        if (!specsRes.ok) throw new Error('Failed to load specs')
+        const specsData = await specsRes.json()
+        setSpecs(specsData)
 
-  // Calculate average rating
-  const averageRating = reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+        // Fetch reviews from API
+        const response = await fetch(`/api/components/${params.id}/reviews`)
+        if (!response.ok) throw new Error('Failed to load reviews')
 
-  // Calculate rating distribution
-  const ratingDistribution = [0, 0, 0, 0, 0]
-  reviews.forEach((review) => {
-    ratingDistribution[review.rating - 1]++
-  })
-  const maxRatingCount = Math.max(...ratingDistribution)
+        const data = await response.json()
+        setReviews(data.reviews)
+        setAverageRating(data.stats.averageRating)
+        setRatingDistribution(data.stats.ratingDistribution)
+
+      } catch (err) {
+        console.error('Fetch error:', err)
+        setError(err instanceof Error ? err.message : "Failed to load data")
+        router.replace('/404')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.id) {
+      fetchData()
+    }
+  }, [params.id, router])
+
+  // Use mock data for price comparisons
+  const priceComparisons = component ? getPriceComparisons(component.id) : []
+  const maxRatingCount = Math.max(...ratingDistribution) || 1
+
+  if (loading) {
+    return (
+      <div className="container mx-auto p-4 py-8">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading component...
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !component) {
+    return (
+      <div className="container mx-auto p-4 py-8">
+        <div className="text-red-500 flex items-center gap-2">
+          <AlertCircle className="h-4 w-4" />
+          {error || "Component not found"}
+        </div>
+        <Button
+          variant="ghost"
+          className="mt-4"
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Parts List
+        </Button>
+      </div>
+    )
+  }
+
 
   return (
     <main className="container mx-auto p-4 py-8">
@@ -147,7 +215,7 @@ export default function PartPage({ params }: { params: { id: string } }) {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {component.specs.map((spec, index) => (
+                    {specs.map((spec, index) => (
                       <div key={index} className="flex justify-between py-2 border-b last:border-0">
                         <span className="font-medium">{spec.name}</span>
                         <span>{spec.value}</span>
@@ -349,7 +417,9 @@ export default function PartPage({ params }: { params: { id: string } }) {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" className="w-full"
+                  onClick={() => router.push(`/parts/${component.id}/review`)}
+                  >
                     Write a Review
                   </Button>
                 </CardFooter>

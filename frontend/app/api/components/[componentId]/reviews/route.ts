@@ -1,43 +1,69 @@
-import { NextResponse } from 'next/server';
-import { 
-  getReviewsByComponentId,
-  getAverageRatingForComponent,
-  getReviewCountByRating
-} from '@/lib/store/reviews';
+import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma'
 
-interface ComponentParams {
-  params: {
-    componentId: string;
-  };
-}
-
-export async function GET(request: Request, { params }: ComponentParams) {
+export async function GET(
+  request: Request,
+  { params }: { params: { componentId: string } }
+) {
   try {
-    const { componentId } = params;
-    
     // Get all reviews for this component
-    const reviews = getReviewsByComponentId(componentId);
-    
-    // Get average rating for the component
-    const averageRating = getAverageRatingForComponent(componentId);
-    
-    // Get review count by rating
-    const ratingCounts = getReviewCountByRating(componentId);
-    
-    // Return reviews and statistics
-    return NextResponse.json({
-      reviews,
-      stats: {
-        totalReviews: reviews.length,
-        averageRating,
-        ratingCounts
+    const reviews = await prisma.review.findMany({
+      where: { componentId: params.componentId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        User: {
+          select: {
+            name: true,
+            image: true
+          }
+        }
       }
-    });
+    })
+
+    // Calculate average rating
+    const averageResult = await prisma.review.aggregate({
+      where: { componentId: params.componentId },
+      _avg: { rating: true }
+    })
+
+    // Calculate rating distribution
+    const ratingDistribution = await prisma.review.groupBy({
+      by: ['rating'],
+      where: { componentId: params.componentId },
+      _count: { rating: true }
+    })
+
+    // Format rating distribution
+    const distributionMap = [0, 0, 0, 0, 0]
+    ratingDistribution.forEach(({ rating, _count }) => {
+      if (rating >= 1 && rating <= 5) {
+        distributionMap[rating - 1] = _count.rating
+      }
+    })
+
+    return NextResponse.json({
+      reviews: reviews.map(review => ({
+        id: review.id,
+        title: review.title || '',
+        content: review.content,
+        rating: review.rating,
+        createdAt: review.createdAt.toISOString(),
+        author: {
+          name: review.User?.name || 'Anonymous',
+          avatar: review.User?.image || '/placeholder.svg'
+        }
+      })),
+      stats: {
+        averageRating: averageResult._avg.rating || 0,
+        ratingDistribution: distributionMap
+      }
+    })
+
   } catch (error) {
-    console.error('Error retrieving component reviews:', error);
+    console.error('Error fetching reviews:', error)
     return NextResponse.json(
-      { error: 'Failed to retrieve component reviews' },
+      { error: 'Failed to retrieve reviews' },
       { status: 500 }
-    );
+    )
   }
 }
